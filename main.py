@@ -1,6 +1,6 @@
 import cv2
+import streamlit as st
 from gui_buttons import Buttons
-from flask import Flask
 
 # Initialize Buttons
 button = Buttons()
@@ -31,28 +31,17 @@ print(classes)
 cap = cv2.VideoCapture(0)  # Use the default camera
 cap.set(cv2.CAP_PROP_FRAME_WIDTH, 1280)
 cap.set(cv2.CAP_PROP_FRAME_HEIGHT, 720)
-# FULL HD 1920 x 1080
 
-def click_button(event, x, y, flags, params):
-    if event == cv2.EVENT_LBUTTONDOWN:
-        button.button_click(x, y)
-
-# Create window
-cv2.namedWindow("Frame")
-cv2.setMouseCallback("Frame", click_button)
-
-while True:
-    # Get frames
+def process_frame():
     ret, frame = cap.read()
     if not ret:
-        break
+        return None
 
     # Get active buttons list
     active_buttons = button.active_buttons_list()
-    print("Active buttons", active_buttons)
 
     # Object Detection
-    (class_ids, scores, bboxes) = model.detect(frame, confThreshold=0.3, nmsThreshold=.4)
+    (class_ids, scores, bboxes) = model.detect(frame, confThreshold=0.3, nmsThreshold=0.4)
     for class_id, score, bbox in zip(class_ids, scores, bboxes):
         (x, y, w, h) = bbox
         class_name = classes[class_id]
@@ -65,10 +54,27 @@ while True:
     # Display buttons
     button.display_buttons(frame)
 
-    cv2.imshow("Frame", frame)
-    key = cv2.waitKey(1)
-    if key == 27:  # Escape key
-        break
+    return frame
 
-cap.release()
-cv2.destroyAllWindows()
+def main():
+    st.title("Real-Time Object Detection with YOLOv4-Tiny")
+    
+    # Display buttons
+    st.sidebar.header("Active Classes")
+    for class_name, (x, y) in button.buttons.items():
+        if st.sidebar.checkbox(class_name, key=class_name):
+            button.activate_button(class_name)
+        else:
+            button.deactivate_button(class_name)
+
+    frame_placeholder = st.empty()
+
+    while True:
+        frame = process_frame()
+        if frame is None:
+            break
+        
+        frame_placeholder.image(frame, channels="BGR")
+    
+if __name__ == '__main__':
+    main()
